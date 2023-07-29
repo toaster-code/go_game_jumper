@@ -26,6 +26,27 @@ var (
 	windowHeight = 240
 )
 
+var (
+	// The image's dimensions
+	imageWidth, imageHeight float64 = 16, 16
+	marioImage              *ebiten.Image
+)
+
+// Define DrawImageOptions
+var opts = &ebiten.DrawImageOptions{}
+
+
+func NewImageFromImage(source *ebiten.Image) (*ebiten.Image, error) {
+	// Create a new image with the same size as the source image.
+	newImage, err := ebiten.NewImageFromImage(source, ebiten.FilterDefault)
+	if err != nil {
+		newImage = nil
+	}
+	return newImage, err
+}
+
+
+
 // This function is called every frame.
 func update(screen *ebiten.Image) error {
 	// Move the rectangle based on the arrow keys.
@@ -93,7 +114,14 @@ func update(screen *ebiten.Image) error {
 
 	// Draw the rectangle at the updated position.
 	screen.Fill(color.Black) // Clear the screen to avoid artifacts.
-	ebitenutil.DrawRect(screen, rectX, rectY, rectWidth, rectHeight, color.White)
+	// ebitenutil.DrawRect(screen, rectX, rectY, rectWidth, rectHeight, color.White)
+
+	// define position
+	// opts.GeoM.Scale(3, 3)
+	opts.GeoM.Translate(rectX, rectY)
+	rectX = 0
+	rectY = 0
+	screen.DrawImage(marioImage, opts)
 	return nil
 }
 
@@ -101,6 +129,14 @@ func main() {
 	// Create a new window with a width of 320 and a height of 240 pixels.
 	ebiten.SetWindowSize(windowWidth, windowHeight)
 	ebiten.SetWindowTitle("Move the Rectangle!")
+
+	var err error // Declare the 'err' variable to capture the error from NewImageFromFile.
+
+	marioImage, _, err = ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 
 	// Start the game loop.
 	if err := ebiten.Run(update, windowWidth, windowHeight, 2, "Move the Rectangle"); err != nil {
