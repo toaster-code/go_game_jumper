@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"log"
+	"math"
 
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/ebitenutil"
@@ -11,14 +12,17 @@ import (
 
 // Define the variables for the rectangle position, velocity, and impulse.
 var (
-	playerPosX, playerPosY    float64 = 0, 0
-	playerWidth, playerHeight float64 = 16, 16
-	maxGroundSpeed            float64 = 2
-	jumpImpulse               float64 = -5 // The upward impulse when jumping.
-	gravity                   float64 = 0.2
-	airControl                float64 = 0.1
-	isOnGround                bool    = true
-	playerVelX, playerVelY    float64 = 0, 0
+	playerPosX, playerPosY         float64 = 0, 0
+	subPixelPosX, subPixelPosY     float64 = 0, 0 // Sub-pixel positions
+	playerWidth, playerHeight      float64 = 16, 16
+	maxGroundSpeed                 float64 = 2
+	jumpImpulse                    float64 = -5 // The upward impulse when jumping.
+	gravity                        float64 = 0.2
+	airControl                     float64 = 0.1
+	isOnGround                     bool    = true
+	playerVelX, playerVelY         float64 = 0, 0
+	subPixelAccumX, subPixelAccumY float64 = 0, 0 // Accumulated fractional parts
+
 )
 
 // Get the window size.
@@ -29,11 +33,16 @@ const (
 
 var (
 	// The image's dimensions
-	playerImage              *ebiten.Image
+	playerImage *ebiten.Image
 )
 
 // Game implements ebiten.Game interface.
 type Game struct{}
+
+// Define the Player struct
+type Player struct {
+	x, y, vx, vy, width, height int
+}
 
 // Define DrawImageOptions
 var opts = &ebiten.DrawImageOptions{}
@@ -64,7 +73,6 @@ func (g *Game) Update(screen *ebiten.Image) error {
 		// Apply gravity if the rectangle is not grounded.
 		playerVelY += gravity
 
-
 		// Handle jumping mechanics.
 		if ebiten.IsKeyPressed(ebiten.KeyUp) {
 			playerVelY = jumpImpulse
@@ -86,25 +94,47 @@ func (g *Game) Update(screen *ebiten.Image) error {
 		}
 	}
 
-	// Update the rectangle's position based on velocity.
-	playerPosX += playerVelX
-	playerPosY += playerVelY
+	// Update the sub-pixel position based on velocity.
+	subPixelPosX += playerVelX
+	subPixelPosY += playerVelY
+
+	// Separate the whole number and fractional parts of the sub-pixel position.
+	wholePartX, fracPartX := math.Modf(subPixelPosX)
+	wholePartY, fracPartY := math.Modf(subPixelPosY)
+
+	// Check if the accumulated fractional parts exceed a threshold (e.g., 1.0).
+	// If so, update the whole number part and adjust the accumulated fractional parts.
+	if math.Abs(subPixelAccumX+fracPartX) >= 1.0 {
+		adjustment := math.Round(subPixelAccumX + fracPartX)
+		subPixelAccumX = subPixelAccumX + fracPartX - adjustment
+		wholePartX += adjustment
+	}
+
+	if math.Abs(subPixelAccumY+fracPartY) >= 1.0 {
+		adjustment := math.Round(subPixelAccumY + fracPartY)
+		subPixelAccumY = subPixelAccumY + fracPartY - adjustment
+		wholePartY += adjustment
+	}
+
+	// Update the actual player position with the rounded whole number parts.
+	playerPosX = wholePartX
+	playerPosY = wholePartY
 
 	// Perform collision detection to prevent the rectangle from moving outside the window frame.
 	if playerPosX < 0 {
-		playerPosX = 0
+		subPixelPosX = 0
 		playerVelX = 0
 	}
 	if playerPosX+playerWidth > float64(windowWidth) {
-		playerPosX = float64(windowWidth) - playerWidth
+		subPixelPosX = float64(windowWidth) - playerWidth
 		playerVelX = 0
 	}
 	if playerPosY < 0 {
-		playerPosY = 0
+		subPixelPosY = 0
 		playerVelY = 0
 	}
 	if playerPosY+playerHeight > float64(windowHeight) {
-		playerPosY = float64(windowHeight) - playerHeight
+		subPixelPosY = float64(windowHeight) - playerHeight
 		playerVelY = 0
 		isOnGround = true
 	}
@@ -119,23 +149,19 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Game rendering.
 	screen.Fill(color.Black) // Clear the screen to avoid artifacts.
 
+	// define position of the player
+	opts.GeoM.Translate(playerVelX, playerVelY)
+	screen.DrawImage(playerImage, opts)
+
 	// Print stats on the screen
 	statsText := fmt.Sprintf("Stats:\nX: %.1f\nY: %.1f\nVelocityX: %.1f\nVelocityY: %.1f\nisOngroud %t", playerPosX, playerPosY, playerVelX, playerVelY, isOnGround)
 	ebitenutil.DebugPrint(screen, statsText)
-
-	// Draw the rectangle at the updated position.
-	// ebitenutil.DrawRect(screen, rectX, rectY, rectWidth, rectHeight, color.White)
-
-	// define position
-	opts.GeoM.Translate(playerVelX, playerVelY)
-	// opts.GeoM.Translate(rectX, rectY)
-	screen.DrawImage(playerImage, opts)
 }
 
 // Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
 // If you don't have to adjust the screen size with the outside size, just return a fixed size.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return windowWidth*1.8, windowHeight*1.8
+	return windowWidth * 1.8, windowHeight * 1.8
 }
 
 func main() {
