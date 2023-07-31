@@ -2,33 +2,54 @@ package main
 
 import (
 	"fmt"
-	"image/color"
+	// "image/color"
 	"log"
-	"math"
+
+	// "math"
 
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/ebitenutil"
 )
 
-// Define the variables for the rectangle position, velocity, and impulse.
-var (
-	playerPosX, playerPosY         float64 = 0, 0
-	subPixelPosX, subPixelPosY     float64 = 0, 0 // Sub-pixel positions
-	playerWidth, playerHeight      float64 = 16, 16
-	maxGroundSpeed                 float64 = 2
-	jumpImpulse                    float64 = -5 // The upward impulse when jumping.
-	gravity                        float64 = 0.2
-	airControl                     float64 = 0.1
-	isOnGround                     bool    = true
-	playerVelX, playerVelY         float64 = 0, 0
-	subPixelAccumX, subPixelAccumY float64 = 0, 0 // Accumulated fractional parts
+// Define the Player struct
+type Player struct {
+	x, y, vx, vy, width, height int
+	xmax, ymax                  int
+}
 
-)
+// the player
+var player Player = Player{
+	x:      0,
+	y:      50,
+	vx:     0,
+	vy:     0,
+	width:  16,
+	height: 16,
+	xmax:   0,
+	ymax:   0,
+}
 
 // Get the window size.
 const (
-	windowWidth  = 320
-	windowHeight = 240
+	subPixelSize      int     = 4                      // The size in bits.
+	floatNumSubPixels float64 = 2 * 2 * 2 * 2          // The number of sub-pixels per pixel.
+	intNumSubPixels   int     = int(floatNumSubPixels) // The number of sub-pixels per pixel.
+	windowWidth       int     = 320 * intNumSubPixels  // The width of the window in pixels.
+	windowHeight      int     = 240 * intNumSubPixels  // The height of the window in pixels.
+)
+
+// Define the variables for the player position, velocity, and impulse.
+// Note that precision using integers is considering 1 decimal place.
+// This is to simulate sub-pixel precision using integers.
+var (
+	subPixelPosX, subPixelPosY int  = int(0 * intNumSubPixels), int(50 * intNumSubPixels) // The sub-pixel position of the target.
+	playerWidth, playerHeight  int  = int(1 * intNumSubPixels), int(1 * intNumSubPixels)  // The width and height of the target.
+	maxGroundSpeed             int  = int(1.25 * floatNumSubPixels)                       // The maximum horizontal speed when on the ground.
+	jumpImpulse                int  = int(-3.125 * floatNumSubPixels)                     // The upward impulse when jumping.
+	gravity                    int  = int(0.625 * floatNumSubPixels)                      // The downward acceleration due to gravity.
+	airControl                 int  = int(0.625 * floatNumSubPixels)                      // The horizontal deceleration when in the air.
+	groundFriction             int  = int(0.0625 * floatNumSubPixels)                     // The horizontal deceleration when on the ground.
+	isOnGround                 bool = true
 )
 
 var (
@@ -38,11 +59,6 @@ var (
 
 // Game implements ebiten.Game interface.
 type Game struct{}
-
-// Define the Player struct
-type Player struct {
-	x, y, vx, vy, width, height int
-}
 
 // Define DrawImageOptions
 var opts = &ebiten.DrawImageOptions{}
@@ -62,82 +78,69 @@ func (g *Game) Update(screen *ebiten.Image) error {
 	// Move the rectangle based on the arrow keys.
 	if isOnGround {
 		if ebiten.IsKeyPressed(ebiten.KeyLeft) {
-			playerVelX = -maxGroundSpeed
+			player.vx = -maxGroundSpeed
 		} else if ebiten.IsKeyPressed(ebiten.KeyRight) {
-			playerVelX = maxGroundSpeed
+			player.vx = maxGroundSpeed
 		} else {
 			// If no arrow keys are pressed, gradually reduce the horizontal velocity to simulate friction.
-			playerVelX *= 0.95
+			if player.vx > 0 {
+				player.vx -= groundFriction
+			} else if player.vx < 0 {
+				player.vx += groundFriction
+			}
 		}
 	} else {
 		// Apply gravity if the rectangle is not grounded.
-		playerVelY += gravity
+		player.vy += player.vx * gravity
 
 		// Handle jumping mechanics.
 		if ebiten.IsKeyPressed(ebiten.KeyUp) {
-			playerVelY = jumpImpulse
+			player.vy = jumpImpulse
 			isOnGround = false
 		}
 
 		// Allow air control to add a smaller effect to the horizontal velocity while in the air.
 		if ebiten.IsKeyPressed(ebiten.KeyLeft) {
-			playerVelX -= airControl
+			player.vx -= airControl
 		}
 		if ebiten.IsKeyPressed(ebiten.KeyRight) {
-			playerVelX += airControl
+			player.vx += airControl
 		}
 
 		// Allow air friction when no key is pressed.
 		// if no arrow keys are pressed, gradually reduce the horizontal velocity to simulate friction.
 		if ebiten.IsKeyPressed(ebiten.KeyUp) && !ebiten.IsKeyPressed(ebiten.KeyLeft) && !ebiten.IsKeyPressed(ebiten.KeyRight) {
-			playerVelX *= 0.90
+			player.vx *= 9
 		}
 	}
 
 	// Update the sub-pixel position based on velocity.
-	subPixelPosX += playerVelX
-	subPixelPosY += playerVelY
-
-	// Separate the whole number and fractional parts of the sub-pixel position.
-	wholePartX, fracPartX := math.Modf(subPixelPosX)
-	wholePartY, fracPartY := math.Modf(subPixelPosY)
-
-	// Check if the accumulated fractional parts exceed a threshold (e.g., 1.0).
-	// If so, update the whole number part and adjust the accumulated fractional parts.
-	if math.Abs(subPixelAccumX+fracPartX) >= 1.0 {
-		adjustment := math.Round(subPixelAccumX + fracPartX)
-		subPixelAccumX = subPixelAccumX + fracPartX - adjustment
-		wholePartX += adjustment
-	}
-
-	if math.Abs(subPixelAccumY+fracPartY) >= 1.0 {
-		adjustment := math.Round(subPixelAccumY + fracPartY)
-		subPixelAccumY = subPixelAccumY + fracPartY - adjustment
-		wholePartY += adjustment
-	}
-
-	// Update the actual player position with the rounded whole number parts.
-	playerPosX = wholePartX
-	playerPosY = wholePartY
+	subPixelPosX += player.vx
+	subPixelPosY += player.vy
+	player.x = subPixelPosX
+	player.y = subPixelPosY
 
 	// Perform collision detection to prevent the rectangle from moving outside the window frame.
-	if playerPosX < 0 {
+	if player.x < 0 { // If the player is outside the left edge of the window, move it back inside and set the velocity to zero.
 		subPixelPosX = 0
-		playerVelX = 0
+		player.vx = 0
 	}
-	if playerPosX+playerWidth > float64(windowWidth) {
-		subPixelPosX = float64(windowWidth) - playerWidth
-		playerVelX = 0
+	if player.x+playerWidth > windowWidth { // If the player is outside the right edge of the window, move it back inside and set the velocity to zero.
+		subPixelPosX = windowWidth - playerWidth
+		player.vx = 0
 	}
-	if playerPosY < 0 {
+	if player.y < 0 { // If the player is outside the top edge of the window, move it back inside and set the velocity to zero.
 		subPixelPosY = 0
-		playerVelY = 0
+		player.vy = 0
 	}
-	if playerPosY+playerHeight > float64(windowHeight) {
-		subPixelPosY = float64(windowHeight) - playerHeight
-		playerVelY = 0
+	if player.y+playerHeight > windowHeight { // If the player is outside the bottom edge of the window, move it back inside and set the velocity to zero.
+		subPixelPosY = windowHeight - playerHeight
+		player.vy = 0
 		isOnGround = true
 	}
+
+	player.xmax = Max(player.xmax, player.x)
+	player.ymax = Max(player.ymax, player.y)
 
 	// No errors occurred, return nil (zero-value).
 	return nil
@@ -147,34 +150,37 @@ func (g *Game) Update(screen *ebiten.Image) error {
 // Draw is called every frame (typically 1/60[s] for 60Hz display).
 func (g *Game) Draw(screen *ebiten.Image) {
 	// Game rendering.
-	screen.Fill(color.Black) // Clear the screen to avoid artifacts.
+	// screen.Fill(color.Black) // Clear the screen to avoid artifacts.
 
 	// define position of the player
-	opts.GeoM.Translate(playerVelX, playerVelY)
+	// opts.GeoM.Translate(float64(player.vx)/floatNumSubPixels, float64(player.vy)/floatNumSubPixels)
+	opts.GeoM.Translate(float64(player.vx/intNumSubPixels), float64(player.vy/intNumSubPixels))
 	screen.DrawImage(playerImage, opts)
 
 	// Print stats on the screen
-	statsText := fmt.Sprintf("Stats:\nX: %.1f\nY: %.1f\nVelocityX: %.1f\nVelocityY: %.1f\nisOngroud %t", playerPosX, playerPosY, playerVelX, playerVelY, isOnGround)
+	// statsText := fmt.Sprintf("Stats:\nX: %.1f\nY: %.1f\nVelocityX: %.1f\nVelocityY: %.1f\nisOngroud %t", player.x, player.y, player.vx, player.vy, isOnGround)
+	// statsText := fmt.Sprintf("Stats:\nX: %1.2f(%1.2f)\nY: %d\nVelocityX: %d\nVelocityY: %d\nisOngroud %t", player.x, player.x*intSubPixelQty , player.y, player.vx, player.vy, isOnGround)
+	statsText := fmt.Sprintf("Stats:\nX: %d(%d)\nmax: %d", player.x, player.x/intNumSubPixels, player.xmax)
 	ebitenutil.DebugPrint(screen, statsText)
 }
 
 // Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
 // If you don't have to adjust the screen size with the outside size, just return a fixed size.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return windowWidth * 1.8, windowHeight * 1.8
+	return windowWidth/intNumSubPixels, windowHeight/intNumSubPixels
 }
 
 func main() {
 	game := &Game{}
 
-	// Create a new window with a width of 320 and a height of 240 pixels.
-	ebiten.SetWindowSize(windowWidth*2, windowHeight*2)
+	// Create a new window
+	ebiten.SetWindowSize(windowWidth/intNumSubPixels, windowHeight/intNumSubPixels)
 	ebiten.SetWindowTitle("Mario")
 
 	var err error // Declare the 'err' variable to capture the error from NewImageFromFile.
 
 	playerImage, _, err = ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
-	opts.GeoM.Scale(2, 2)
+	opts.GeoM.Scale(1, 1)
 
 	if err != nil {
 		log.Fatal(err)
