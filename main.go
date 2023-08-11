@@ -13,12 +13,14 @@ import (
 
 // Define the Player struct
 type Player struct {
+	image                       *ebiten.Image
 	x, y, vx, vy, width, height int
 	xmax, ymax                  int
 }
 
 // the player
 var player Player = Player{
+	image:  nil,
 	x:      0,
 	y:      50,
 	vx:     0,
@@ -58,7 +60,11 @@ var (
 )
 
 // Game implements ebiten.Game interface.
-type Game struct{}
+type Game struct {
+	cycles        int
+	frameCount    int
+	droppedFrames int
+}
 
 // Define DrawImageOptions
 var opts = &ebiten.DrawImageOptions{}
@@ -91,7 +97,12 @@ func (g *Game) Update(screen *ebiten.Image) error {
 		}
 	} else {
 		// Apply gravity if the rectangle is not grounded.
-		player.vy += player.vx * gravity
+		player.vy += gravity
+
+		// Saturate fall (terminal velocity):
+		if player.vy > 4*intNumSubPixels {
+			player.vy = 4 * intNumSubPixels
+		}
 
 		// Handle jumping mechanics.
 		if ebiten.IsKeyPressed(ebiten.KeyUp) {
@@ -142,6 +153,7 @@ func (g *Game) Update(screen *ebiten.Image) error {
 	player.xmax = Max(player.xmax, player.x)
 	player.ymax = Max(player.ymax, player.y)
 
+	g.cycles++
 	// No errors occurred, return nil (zero-value).
 	return nil
 }
@@ -155,31 +167,41 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// define position of the player
 	// opts.GeoM.Translate(float64(player.vx)/floatNumSubPixels, float64(player.vy)/floatNumSubPixels)
 	opts.GeoM.Translate(float64(player.vx/intNumSubPixels), float64(player.vy/intNumSubPixels))
-	screen.DrawImage(playerImage, opts)
+	screen.DrawImage(player.image, opts)
 
 	// Print stats on the screen
 	// statsText := fmt.Sprintf("Stats:\nX: %.1f\nY: %.1f\nVelocityX: %.1f\nVelocityY: %.1f\nisOngroud %t", player.x, player.y, player.vx, player.vy, isOnGround)
 	// statsText := fmt.Sprintf("Stats:\nX: %1.2f(%1.2f)\nY: %d\nVelocityX: %d\nVelocityY: %d\nisOngroud %t", player.x, player.x*intSubPixelQty , player.y, player.vx, player.vy, isOnGround)
 	statsText := fmt.Sprintf("Stats:\nX: %d(%d)\nmax: %d", player.x, player.x/intNumSubPixels, player.xmax)
+	// Display FPS and dropped frames on the screen.
+	statsText += fmt.Sprintf("\nFPS: %0.2f\nDropped Frames: %d\nFrame=%d\ncycle=%d", ebiten.CurrentFPS(), g.droppedFrames, g.cycles, g.frameCount)
 	ebitenutil.DebugPrint(screen, statsText)
+
+	g.frameCount++
 }
 
 // Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
 // If you don't have to adjust the screen size with the outside size, just return a fixed size.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return windowWidth/intNumSubPixels, windowHeight/intNumSubPixels
+	return windowWidth / intNumSubPixels / 2, windowHeight / intNumSubPixels / 2
 }
 
 func main() {
-	game := &Game{}
+	game := &Game{
+		frameCount:    0,
+		cycles:        0,
+		droppedFrames: 0,
+	}
 
 	// Create a new window
 	ebiten.SetWindowSize(windowWidth/intNumSubPixels, windowHeight/intNumSubPixels)
 	ebiten.SetWindowTitle("Mario")
+	// Set the frame rate to 30 FPS.
+	// ebiten.SetMaxTPS(25)
 
 	var err error // Declare the 'err' variable to capture the error from NewImageFromFile.
 
-	playerImage, _, err = ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
+	player.image, _, err = ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
 	opts.GeoM.Scale(1, 1)
 
 	if err != nil {
