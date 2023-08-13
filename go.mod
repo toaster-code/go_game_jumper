@@ -1,4 +1,4 @@
-module example.com/main
+module go_game_jumper
 
 go 1.20
 

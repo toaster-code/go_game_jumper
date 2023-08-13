@@ -1,38 +1,39 @@
 package main
 
+// tips for importing packages:
+// the import of local packages is relative to the current package, and should refer to the subdirectory name
+
 import (
 	"fmt"
 	// "image/color"
-	"log"
-
-	// "math"
-
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/ebitenutil"
+	t "go_game_jumper/src/tiles" // import the tiles package
+	"log"
 )
 
-// Define the Tile struct
-type Tile struct {
-	image         *ebiten.Image
-	x, y          int
-	vx, vy        int
-	width, height int
-	isOnGround    bool
-	blocking 	  bool
+// GetIndexFromXY gets the index of the map array from a given X,Y TILE coordinate.
+// This coordinate is logical tiles, not pixels.
+func GetIndexFromXY(x int, y int) int {
+	gd := NewGameData()
+	return (y * gd.ScreenWidth) + x
 }
 
 // the player
-var player Tile = Tile{
-	image:      nil,
-	x:          50,
-	y:          50,
-	vx:         0,
-	vy:         0,
-	width:      16,
-	height:     16,
-	isOnGround: true,
-	blocking:   true,
+var player t.Tile =  t.NewTile( nil, 50, 50, 0, 0, 16, 16, true, true)
+
+var playerqq t.Tile = t.Tile{
+	Image:    nil,
+	X:        50,
+	Y:        50,
+	Vx:       0,
+	Vy:       0,
+	Width:    16,
+	Height:   16,
+	Standing: true,
+	Blocking: true,
 }
+
 
 // Get the window size.
 const (
@@ -53,7 +54,7 @@ type Physics = struct {
 	groundFriction         int  // The horizontal deceleration when on the ground.
 	airDragCoeff           int  // The coefficient of air drag.
 	terminalVelocity       int  // The maximum downward speed.
-	isOnGround             bool // Whether the player is on the ground or not.
+	standing               bool // Whether the player is on the ground or not.
 }
 
 const blockSize = float64(16) // The resolution of a voxel.
@@ -68,7 +69,7 @@ var world Physics = Physics{
 	groundFriction:   int(0.0625 * blockSize),
 	airDragCoeff:     int(9),
 	terminalVelocity: int(4 * blockSize),
-	isOnGround:       true,
+	standing:         true,
 }
 
 // Game implements ebiten.Game interface.
@@ -85,6 +86,7 @@ type GameData struct {
 	TileHeight   int
 }
 
+// NewGameData creates a new GameData struct
 func NewGameData() GameData {
 	g := GameData{
 		ScreenWidth:  80,
@@ -111,7 +113,7 @@ func NewImageFromImage(source *ebiten.Image) (*ebiten.Image, error) {
 func (g *Game) Update(screen *ebiten.Image) error {
 
 	// Move the rectangle based on the arrow keys.
-	if player.isOnGround {
+	if player.standing {
 		if ebiten.IsKeyPressed(ebiten.KeyLeft) {
 			player.vx = -world.maxGroundSpeed
 		} else if ebiten.IsKeyPressed(ebiten.KeyRight) {
@@ -136,7 +138,7 @@ func (g *Game) Update(screen *ebiten.Image) error {
 		// Handle jumping mechanics.
 		if ebiten.IsKeyPressed(ebiten.KeyUp) {
 			player.vy = -world.jumpImpulse
-			player.isOnGround = false
+			player.standing = false
 		}
 
 		// Allow air control to add a smaller effect to the horizontal velocity while in the air.
@@ -174,7 +176,7 @@ func (g *Game) Update(screen *ebiten.Image) error {
 	if player.y > windowHeight-player.height { // If the player is outside the bottom edge of the window, move it back inside and set the velocity to zero.
 		player.y = windowHeight - player.height
 		player.vy = 0
-		player.isOnGround = true
+		player.standing = true
 	}
 
 	// define position of the player
@@ -220,6 +222,10 @@ func NewGame() *Game {
 	return g
 }
 
+func LoadSprites() *GameTiles {
+
+}
+
 func main() {
 	game := NewGame()
 
@@ -234,7 +240,16 @@ func main() {
 
 	var err error // Declare the 'err' variable to capture the error from NewImageFromFile.
 
+	// load sprites
+	// Create a Tile instance from the tiles package
+	mytile := tiles.Tile{
+		x: 1,
+		y: 2,
+	}
+
 	player.image, _, err = ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
+	wallImage, _, err := ebitenutil.NewImageFromFile("./res/Tilemaps/Png Files/wood_moss_alt_tileset_2.png", ebiten.FilterDefault)
+
 	opts.GeoM.Scale(1, 1)
 
 	// define start position of the player
