@@ -11,18 +11,18 @@ import (
 	"github.com/hajimehoshi/ebiten/ebitenutil"
 )
 
-// Define the Player struct
-type Player struct {
+// Define the Tile struct
+type Tile struct {
 	image         *ebiten.Image
 	x, y          int
 	vx, vy        int
 	width, height int
-	xmax, ymax    int
 	isOnGround    bool
+	blocking 	  bool
 }
 
 // the player
-var player Player = Player{
+var player Tile = Tile{
 	image:      nil,
 	x:          50,
 	y:          50,
@@ -31,6 +31,7 @@ var player Player = Player{
 	width:      16,
 	height:     16,
 	isOnGround: true,
+	blocking:   true,
 }
 
 // Get the window size.
@@ -50,7 +51,7 @@ type Physics = struct {
 	gravity                int  // The downward acceleration due to gravity.
 	airControl             int  // The horizontal deceleration when in the air.
 	groundFriction         int  // The horizontal deceleration when on the ground.
-	airDragCoeff		   int  // The coefficient of air drag.
+	airDragCoeff           int  // The coefficient of air drag.
 	terminalVelocity       int  // The maximum downward speed.
 	isOnGround             bool // Whether the player is on the ground or not.
 }
@@ -65,7 +66,7 @@ var world Physics = Physics{
 	gravity:          int(0.625 * blockSize),
 	airControl:       int(0.625 * blockSize),
 	groundFriction:   int(0.0625 * blockSize),
-	airDragCoeff:    int(9),
+	airDragCoeff:     int(9),
 	terminalVelocity: int(4 * blockSize),
 	isOnGround:       true,
 }
@@ -75,6 +76,23 @@ type Game struct {
 	cycles        int
 	frameCount    int
 	droppedFrames int
+}
+
+type GameData struct {
+	ScreenWidth  int
+	ScreenHeight int
+	TileWidth    int
+	TileHeight   int
+}
+
+func NewGameData() GameData {
+	g := GameData{
+		ScreenWidth:  80,
+		ScreenHeight: 50,
+		TileWidth:    16,
+		TileHeight:   16,
+	}
+	return g
 }
 
 // Define DrawImageOptions
@@ -145,7 +163,7 @@ func (g *Game) Update(screen *ebiten.Image) error {
 		player.x = 0
 		player.vx = 0
 	}
-	if player.x > windowWidth - player.width{ // If the player is outside the right edge of the window, move it back inside and set the velocity to zero.
+	if player.x > windowWidth-player.width { // If the player is outside the right edge of the window, move it back inside and set the velocity to zero.
 		player.x = windowWidth - player.width
 		player.vx = 0
 	}
@@ -153,7 +171,7 @@ func (g *Game) Update(screen *ebiten.Image) error {
 		player.y = 0
 		player.vy = 0
 	}
-	if player.y > windowHeight - player.height { // If the player is outside the bottom edge of the window, move it back inside and set the velocity to zero.
+	if player.y > windowHeight-player.height { // If the player is outside the bottom edge of the window, move it back inside and set the velocity to zero.
 		player.y = windowHeight - player.height
 		player.vy = 0
 		player.isOnGround = true
@@ -163,6 +181,7 @@ func (g *Game) Update(screen *ebiten.Image) error {
 	opts.GeoM.Translate(float64(player.vx), float64(player.vy))
 
 	g.cycles++
+
 	// No errors occurred, return nil (zero-value).
 	return nil
 }
@@ -172,7 +191,6 @@ func (g *Game) Update(screen *ebiten.Image) error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	// Game rendering.
 	// screen.Fill(color.Black) // Clear the screen to avoid artifacts.
-
 
 	screen.DrawImage(player.image, opts)
 
@@ -188,25 +206,25 @@ func (g *Game) Draw(screen *ebiten.Image) {
 // Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
 // If you don't have to adjust the screen size with the outside size, just return a fixed size.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return windowWidth , windowHeight
+	return windowWidth, windowHeight
 }
 
-//NewGame creates a new Game Object and initializes the data
-//This is a pretty solid refactor candidate for later
+// NewGame creates a new Game Object and initializes the data
+// This is a pretty solid refactor candidate for later
 func NewGame() *Game {
 	g := &Game{
 		frameCount:    0,
 		cycles:        0,
 		droppedFrames: 0,
 	}
-		return g
+	return g
 }
 
 func main() {
 	game := NewGame()
 
 	// Set the maximum TPS to 60
-	ebiten.SetMaxTPS(60)
+	ebiten.SetMaxTPS(10)
 	ebiten.SetVsyncEnabled(true)
 	ebiten.SetWindowResizable(true)
 
@@ -219,10 +237,8 @@ func main() {
 	player.image, _, err = ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
 	opts.GeoM.Scale(1, 1)
 
-
 	// define start position of the player
 	opts.GeoM.Translate(float64(player.x), float64(player.y))
-
 
 	if err != nil {
 		log.Fatal(err)
