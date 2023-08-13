@@ -60,8 +60,8 @@ const blockSize = float64(16) // The resolution of a voxel.
 var world Physics = Physics{
 	xBlockSize:       int(4),
 	yBlockSize:       int(4),
-	maxGroundSpeed:   int(1.25 * blockSize),
-	jumpImpulse:      int(3.125 * blockSize),
+	maxGroundSpeed:   int(2),
+	jumpImpulse:      int(3.125 * blockSize), // 3.125 * blockSize = 50
 	gravity:          int(0.625 * blockSize),
 	airControl:       int(0.625 * blockSize),
 	groundFriction:   int(0.0625 * blockSize),
@@ -159,6 +159,9 @@ func (g *Game) Update(screen *ebiten.Image) error {
 		player.isOnGround = true
 	}
 
+	// define position of the player
+	opts.GeoM.Translate(float64(player.vx), float64(player.vy))
+
 	g.cycles++
 	// No errors occurred, return nil (zero-value).
 	return nil
@@ -171,8 +174,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// screen.Fill(color.Black) // Clear the screen to avoid artifacts.
 
 
-	// define position of the player
-	opts.GeoM.Translate(float64(player.vx), float64(player.vy))
 	screen.DrawImage(player.image, opts)
 
 	// Print stats on the screen
@@ -190,16 +191,24 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 	return windowWidth , windowHeight
 }
 
-func main() {
-	game := &Game{
+//NewGame creates a new Game Object and initializes the data
+//This is a pretty solid refactor candidate for later
+func NewGame() *Game {
+	g := &Game{
 		frameCount:    0,
 		cycles:        0,
 		droppedFrames: 0,
 	}
+		return g
+}
+
+func main() {
+	game := NewGame()
 
 	// Set the maximum TPS to 60
 	ebiten.SetMaxTPS(60)
 	ebiten.SetVsyncEnabled(true)
+	ebiten.SetWindowResizable(true)
 
 	// Create a new window
 	ebiten.SetWindowSize(windowWidth, windowHeight)
@@ -209,6 +218,11 @@ func main() {
 
 	player.image, _, err = ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
 	opts.GeoM.Scale(1, 1)
+
+
+	// define start position of the player
+	opts.GeoM.Translate(float64(player.x), float64(player.y))
+
 
 	if err != nil {
 		log.Fatal(err)
