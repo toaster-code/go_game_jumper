@@ -20,9 +20,9 @@ func GetIndexFromXY(x int, y int) int {
 }
 
 // the player
-var player t.Tile =  t.NewTile( nil, 50, 50, 0, 0, 16, 16, true, true)
+// var player t.Tile =  t.NewTile( nil, 50, 50, 0, 0, 16, 16, true, true)
 
-var playerqq t.Tile = t.Tile{
+var player t.Tile = t.Tile{
 	Image:    nil,
 	X:        50,
 	Y:        50,
@@ -46,7 +46,6 @@ const (
 // This is to simulate sub-pixel precision using integers.
 
 type Physics = struct {
-	xBlockSize, yBlockSize int  // The resolution of a voxel.
 	maxGroundSpeed         int  // The maximum horizontal speed when on the ground.
 	jumpImpulse            int  // The upward impulse when jumping.
 	gravity                int  // The downward acceleration due to gravity.
@@ -54,14 +53,12 @@ type Physics = struct {
 	groundFriction         int  // The horizontal deceleration when on the ground.
 	airDragCoeff           int  // The coefficient of air drag.
 	terminalVelocity       int  // The maximum downward speed.
-	standing               bool // Whether the player is on the ground or not.
+	Standing               bool // Whether the player is on the ground or not.
 }
 
 const blockSize = float64(16) // The resolution of a voxel.
 
 var world Physics = Physics{
-	xBlockSize:       int(4),
-	yBlockSize:       int(4),
 	maxGroundSpeed:   int(2),
 	jumpImpulse:      int(3.125 * blockSize), // 3.125 * blockSize = 50
 	gravity:          int(0.625 * blockSize),
@@ -69,7 +66,7 @@ var world Physics = Physics{
 	groundFriction:   int(0.0625 * blockSize),
 	airDragCoeff:     int(9),
 	terminalVelocity: int(4 * blockSize),
-	standing:         true,
+	Standing:         true,
 }
 
 // Game implements ebiten.Game interface.
@@ -113,74 +110,74 @@ func NewImageFromImage(source *ebiten.Image) (*ebiten.Image, error) {
 func (g *Game) Update(screen *ebiten.Image) error {
 
 	// Move the rectangle based on the arrow keys.
-	if player.standing {
+	if player.Standing {
 		if ebiten.IsKeyPressed(ebiten.KeyLeft) {
-			player.vx = -world.maxGroundSpeed
+			player.Vx = -world.maxGroundSpeed
 		} else if ebiten.IsKeyPressed(ebiten.KeyRight) {
-			player.vx = world.maxGroundSpeed
+			player.Vx = world.maxGroundSpeed
 		} else {
 			// If no arrow keys are pressed, gradually reduce the horizontal velocity to simulate friction.
-			if player.vx > 0 {
-				player.vx -= world.groundFriction
-			} else if player.vx < 0 {
-				player.vx += world.groundFriction
+			if player.Vx > 0 {
+				player.Vx -= world.groundFriction
+			} else if player.Vx < 0 {
+				player.Vx += world.groundFriction
 			}
 		}
 	} else {
 		// Apply gravity when in air.
-		player.vy += world.gravity
+		player.Vy += world.gravity
 
 		// Saturate fall (terminal velocity):
-		if player.vy > world.terminalVelocity {
-			player.vy = world.terminalVelocity
+		if player.Vy > world.terminalVelocity {
+			player.Vy = world.terminalVelocity
 		}
 
 		// Handle jumping mechanics.
 		if ebiten.IsKeyPressed(ebiten.KeyUp) {
-			player.vy = -world.jumpImpulse
-			player.standing = false
+			player.Vy = -world.jumpImpulse
+			player.Standing = false
 		}
 
 		// Allow air control to add a smaller effect to the horizontal velocity while in the air.
 		if ebiten.IsKeyPressed(ebiten.KeyLeft) {
-			player.vx -= world.airControl
+			player.Vx -= world.airControl
 		}
 		if ebiten.IsKeyPressed(ebiten.KeyRight) {
-			player.vx += world.airControl
+			player.Vx += world.airControl
 		}
 
 		// Allow air friction when no key is pressed.
 		// if no arrow keys are pressed, gradually reduce the horizontal velocity to simulate friction.
 		if ebiten.IsKeyPressed(ebiten.KeyUp) && !ebiten.IsKeyPressed(ebiten.KeyLeft) && !ebiten.IsKeyPressed(ebiten.KeyRight) {
-			player.vx *= world.airDragCoeff
+			player.Vx *= world.airDragCoeff
 		}
 	}
 
 	// Update the position based on velocity.
-	player.x += player.vx
-	player.y += player.vy
+	player.X += player.Vx
+	player.Y += player.Vy
 
 	// Perform collision detection to prevent the rectangle from moving outside the window frame.
-	if player.x < 0 { // If the player is outside the left edge of the window, move it back inside and set the velocity to zero.
-		player.x = 0
-		player.vx = 0
+	if player.X < 0 { // If the player is outside the left edge of the window, move it back inside and set the velocity to zero.
+		player.X = 0
+		player.Vx = 0
 	}
-	if player.x > windowWidth-player.width { // If the player is outside the right edge of the window, move it back inside and set the velocity to zero.
-		player.x = windowWidth - player.width
-		player.vx = 0
+	if player.X > windowWidth-player.Width { // If the player is outside the right edge of the window, move it back inside and set the velocity to zero.
+		player.X = windowWidth - player.Width
+		player.Vx = 0
 	}
-	if player.y < 0 { // If the player is outside the top edge of the window, move it back inside and set the velocity to zero.
-		player.y = 0
-		player.vy = 0
+	if player.Y < 0 { // If the player is outside the top edge of the window, move it back inside and set the velocity to zero.
+		player.Y = 0
+		player.Vy = 0
 	}
-	if player.y > windowHeight-player.height { // If the player is outside the bottom edge of the window, move it back inside and set the velocity to zero.
-		player.y = windowHeight - player.height
-		player.vy = 0
-		player.standing = true
+	if player.Y > windowHeight-player.Height { // If the player is outside the bottom edge of the window, move it back inside and set the velocity to zero.
+		player.Y = windowHeight - player.Height
+		player.Vy = 0
+		player.Standing = true
 	}
 
 	// define position of the player
-	opts.GeoM.Translate(float64(player.vx), float64(player.vy))
+	opts.GeoM.Translate(float64(player.Vx), float64(player.Vy))
 
 	g.cycles++
 
@@ -194,10 +191,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Game rendering.
 	// screen.Fill(color.Black) // Clear the screen to avoid artifacts.
 
-	screen.DrawImage(player.image, opts)
+	screen.DrawImage(player.Image, opts)
 
 	// Print stats on the screen
-	statsText := fmt.Sprintf("Stats:\nX: %d", player.x)
+	statsText := fmt.Sprintf("Stats:\nX: %d", player.X)
 	// Display FPS and dropped frames on the screen.
 	statsText += fmt.Sprintf("\nFPS: %0.1f\nDropped Frames: %d\nFrame=%d\ncycle=%d", ebiten.CurrentTPS(), g.droppedFrames, g.cycles, g.frameCount)
 	ebitenutil.DebugPrint(screen, statsText)
@@ -222,9 +219,6 @@ func NewGame() *Game {
 	return g
 }
 
-func LoadSprites() *GameTiles {
-
-}
 
 func main() {
 	game := NewGame()
@@ -240,20 +234,21 @@ func main() {
 
 	var err error // Declare the 'err' variable to capture the error from NewImageFromFile.
 
-	// load sprites
-	// Create a Tile instance from the tiles package
-	mytile := tiles.Tile{
-		x: 1,
-		y: 2,
-	}
 
-	player.image, _, err = ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
-	wallImage, _, err := ebitenutil.NewImageFromFile("./res/Tilemaps/Png Files/wood_moss_alt_tileset_2.png", ebiten.FilterDefault)
+	// Create a Tile instance from the tiles package
+	// mytile := t.Tile{
+	// 	X: 1,
+	// 	Y: 2,
+	// }
+
+	player.Image, _, err = ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
+
+	//wallImage, _, err := ebitenutil.NewImageFromFile("./res/Tilemaps/Png Files/wood_moss_alt_tileset_2.png", ebiten.FilterDefault)
 
 	opts.GeoM.Scale(1, 1)
 
 	// define start position of the player
-	opts.GeoM.Translate(float64(player.x), float64(player.y))
+	opts.GeoM.Translate(float64(player.X), float64(player.Y))
 
 	if err != nil {
 		log.Fatal(err)
