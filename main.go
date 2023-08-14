@@ -9,6 +9,7 @@ import (
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/ebitenutil"
 	t "go_game_jumper/src/tiles" // import the tiles package
+	"go_game_jumper/src/tools" // import the tiles package
 	"log"
 )
 
@@ -221,7 +222,16 @@ func NewGame() *Game {
 
 
 func main() {
+
+
+	println(t.Fabio)
+	println(tools.Max(1,5))
+
+
+
 	game := NewGame()
+
+
 
 	// Set the maximum TPS to 60
 	ebiten.SetMaxTPS(10)

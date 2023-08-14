@@ -1,4 +1,4 @@
-package main
+package tools
 
 // Max returns the maximum integer from a slice of integers.
 // If the slice is empty, then a panic occurs.
