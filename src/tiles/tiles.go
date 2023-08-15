@@ -11,16 +11,16 @@ var Fabio int = 255
 
 // Define the Tile struct
 type Tile struct {
-	Image         *ebiten.Image // Image of the tile
-	X, Y          int // embbed the X, Y coordinates of the tile
-	Vx, Vy        int // embbed the speed at X, Y coordinates of the tile
-	Width, Height int // embbed the size of the tile
-	Standing      bool // flag referring to the status of the tile.
-	Blocking      bool
+	Image         *ebiten.Image // pointer to the image of the tile
+	X, Y          int           // embbed the X, Y coordinates of the tile
+	Vx, Vy        int           // embbed the speed at X, Y coordinates of the tile
+	Width, Height int           // embbed the size of the tile
+	Standing      bool          // flag referring to the status of the tile.
+	Blocking      bool          // flag referring to the status of the tile.
 }
 
 // NewTile creates and initializes a new Tile instance with the image set to nil.
-func NewTile(image *ebiten.Image, x, y, vx, vy, width, height int, standing, blocking bool) Tile {
+func NewTile(image *ebiten.Image, x int, y int, vx int, vy int, width int, height int, standing bool, blocking bool) Tile {
 	return Tile{
 		Image:    image,
 		X:        x,
@@ -32,4 +32,9 @@ func NewTile(image *ebiten.Image, x, y, vx, vy, width, height int, standing, blo
 		Standing: standing,
 		Blocking: blocking,
 	}
+}
+
+// creates a slice of tiles
+func NewTileSlice(size int) []Tile {
+	return make([]Tile, size)
 }
