@@ -5,12 +5,13 @@ package main
 
 import (
 	"fmt"
-	// "image/color"
+	"image/color"
+	"go_game_jumper/src/tiles" // import the tiles package
+	"go_game_jumper/src/tools" // import the tools package
+	"log"
+
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/ebitenutil"
-	t "go_game_jumper/src/tiles" // import the tiles package
-	"go_game_jumper/src/tools" // import the tiles package
-	"log"
 )
 
 // GetIndexFromXY gets the index of the map array from a given X,Y TILE coordinate.
@@ -20,10 +21,12 @@ func GetIndexFromXY(x int, y int) int {
 	return (y * gd.ScreenWidth) + x
 }
 
+var a = tiles.NewTileSlice(1)
+
 // the player
 // var player t.Tile =  t.NewTile( nil, 50, 50, 0, 0, 16, 16, true, true)
 
-var player t.Tile = t.Tile{
+var player tiles.Tile = tiles.Tile{
 	Image:    nil,
 	X:        50,
 	Y:        50,
@@ -34,7 +37,6 @@ var player t.Tile = t.Tile{
 	Standing: true,
 	Blocking: true,
 }
-
 
 // Get the window size.
 const (
@@ -47,14 +49,14 @@ const (
 // This is to simulate sub-pixel precision using integers.
 
 type Physics = struct {
-	maxGroundSpeed         int  // The maximum horizontal speed when on the ground.
-	jumpImpulse            int  // The upward impulse when jumping.
-	gravity                int  // The downward acceleration due to gravity.
-	airControl             int  // The horizontal deceleration when in the air.
-	groundFriction         int  // The horizontal deceleration when on the ground.
-	airDragCoeff           int  // The coefficient of air drag.
-	terminalVelocity       int  // The maximum downward speed.
-	Standing               bool // Whether the player is on the ground or not.
+	maxGroundSpeed   int  // The maximum horizontal speed when on the ground.
+	jumpImpulse      int  // The upward impulse when jumping.
+	gravity          int  // The downward acceleration due to gravity.
+	airControl       int  // The horizontal deceleration when in the air.
+	groundFriction   int  // The horizontal deceleration when on the ground.
+	airDragCoeff     int  // The coefficient of air drag.
+	terminalVelocity int  // The maximum downward speed.
+	Standing         bool // Whether the player is on the ground or not.
 }
 
 const blockSize = float64(16) // The resolution of a voxel.
@@ -110,12 +112,17 @@ func NewImageFromImage(source *ebiten.Image) (*ebiten.Image, error) {
 // This function is called every frame.
 func (g *Game) Update(screen *ebiten.Image) error {
 
+	println("Update step: ", g.cycles)
+
+
+	// Game logic goes here.
+
 	// Move the rectangle based on the arrow keys.
 	if player.Standing {
 		if ebiten.IsKeyPressed(ebiten.KeyLeft) {
 			player.Vx = -world.maxGroundSpeed
 		} else if ebiten.IsKeyPressed(ebiten.KeyRight) {
-			player.Vx = world.maxGroundSpeed
+			player.Vx = +world.maxGroundSpeed
 		} else {
 			// If no arrow keys are pressed, gradually reduce the horizontal velocity to simulate friction.
 			if player.Vx > 0 {
@@ -189,16 +196,33 @@ func (g *Game) Update(screen *ebiten.Image) error {
 // Draw draws the game screen.
 // Draw is called every frame (typically 1/60[s] for 60Hz display).
 func (g *Game) Draw(screen *ebiten.Image) {
+
+	println("Draw step: ", g.frameCount)
+
 	// Game rendering.
-	// screen.Fill(color.Black) // Clear the screen to avoid artifacts.
+	screen.Fill(color.Black) // Clear the screen to avoid artifacts.
+
+	// Draw the player's image at its X and Y coordinates.
+	opts.GeoM.Reset()
 
 	screen.DrawImage(player.Image, opts)
+	screen.DrawImage(a[0].Image, opts)
 
 	// Print stats on the screen
 	statsText := fmt.Sprintf("Stats:\nX: %d", player.X)
 	// Display FPS and dropped frames on the screen.
 	statsText += fmt.Sprintf("\nFPS: %0.1f\nDropped Frames: %d\nFrame=%d\ncycle=%d", ebiten.CurrentTPS(), g.droppedFrames, g.cycles, g.frameCount)
 	ebitenutil.DebugPrint(screen, statsText)
+
+    // Draw the tiles from the 'a' slice.
+    for i := 0; i < len(a); i++ {
+        tile := a[i] // Get the current tile
+
+        // Draw the tile's image at its X and Y coordinates.
+        opts.GeoM.Reset()
+        opts.GeoM.Translate(float64(tile.X), float64(tile.Y))
+        screen.DrawImage(tile.Image, opts)
+    }
 
 	g.frameCount++
 }
@@ -221,17 +245,29 @@ func NewGame() *Game {
 }
 
 
+
 func main() {
 
+	println(tiles.Check_if_working)
+	println(tools.Max(1, 5))
+	var err error
 
-	println(t.Fabio)
-	println(tools.Max(1,5))
+	// var wallImage *ebiten.Image
 
-
+	// wallImage, _, err = ebitenutil.NewImageFromFile("./res/Tilemaps/Png Files/wood_moss_alt_tileset_2.png", ebiten.FilterDefault)
+	Test_image, _, _ := ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
+	if err != nil {
+		log.Fatal(err)
+	}
+	player.Image, _, _ = ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
+	if err != nil {
+		log.Fatal(err)
+	}
+	a[0] = tiles.NewTile(Test_image, 0, 0, 0, 0, 16, 16, true, true)
+	// a[1] = tiles.NewTile(player.Image, 150, 150, 0, 0, 16, 16, true, true)
+	// a[2] = tiles.NewTile(wallImage, 250, 400, 0, 0, 16, 16, true, true)
 
 	game := NewGame()
-
-
 
 	// Set the maximum TPS to 60
 	ebiten.SetMaxTPS(10)
@@ -242,23 +278,10 @@ func main() {
 	ebiten.SetWindowSize(windowWidth, windowHeight)
 	ebiten.SetWindowTitle("Mario")
 
-	var err error // Declare the 'err' variable to capture the error from NewImageFromFile.
-
-
-	// Create a Tile instance from the tiles package
-	// mytile := t.Tile{
-	// 	X: 1,
-	// 	Y: 2,
-	// }
-
-	player.Image, _, err = ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
-
-	//wallImage, _, err := ebitenutil.NewImageFromFile("./res/Tilemaps/Png Files/wood_moss_alt_tileset_2.png", ebiten.FilterDefault)
-
-	opts.GeoM.Scale(1, 1)
+	opts.GeoM.Scale(2, 2)
 
 	// define start position of the player
-	opts.GeoM.Translate(float64(player.X), float64(player.Y))
+	// opts.GeoM.Translate(float64(player.X), float64(player.Y))
 
 	if err != nil {
 		log.Fatal(err)
