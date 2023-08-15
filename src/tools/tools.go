@@ -15,4 +15,3 @@ func Max(nums ...int) int {
 	}
 	return maximum
 }
-
