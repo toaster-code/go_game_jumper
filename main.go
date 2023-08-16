@@ -4,7 +4,6 @@ package main
 
 import (
 	"go_game_jumper/src/tiles" // import the tiles package
-	"go_game_jumper/src/tools" // import the tools package
 	"log"
 
 	"github.com/hajimehoshi/ebiten"
@@ -26,24 +25,26 @@ var world Physics = Physics{
 
 // Define DrawImageOptions
 var opts = &ebiten.DrawImageOptions{}
+var screenData ScreenData = NewScreenData()
 
 func main() {
 
-	println(tiles.Check_if_working)
-	println(tools.Max(1, 5))
+	// declarations
 	var err error
-
 	var tileSetImage *ebiten.Image
 
 	tileSetImage, _, err = ebitenutil.NewImageFromFile("./res/Tilemaps/Png Files/wood_moss_alt_tileset_2.png", ebiten.FilterDefault)
-	// Test_image, _, _ := ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
+	// Test_image, _, err := ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
 	if err != nil {
 		log.Fatal(err)
 	}
-	player.SpriteSheetImage, _, _ = ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
+
+	player.SpriteSheetImage, _, err = ebitenutil.NewImageFromFile("./res/small_mario_p0.png", ebiten.FilterDefault)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	println("The maximum number of tiles in the screen is: ", screenData.len())
 
 	// Extract textures from the tileset image.
 	img := tiles.SpriteByIndex(tileSetImage, 5, 16, 16) // wallImage

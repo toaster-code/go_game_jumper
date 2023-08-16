@@ -37,16 +37,61 @@ func NewScreenData() ScreenData {
 	return g
 }
 
+// Len returns the number of tiles that can be displayed on the screen.
+func (s ScreenData) len() int {
+	return s.ScreenWidth * s.ScreenHeight
+}
+
+// Size returns the width and height of the game screen in tiles.
+//
+// Returns:
+//
+//	The width and height of the game screen in tiles.
+func (s ScreenData) Size() (width, height int) {
+	return s.ScreenWidth, s.ScreenHeight
+}
+
 // GetIndexFromXY gets the index of the map array from a given X,Y TILE coordinate.
-// This coordinate is logical tiles, not pixels.
+// Coordinates are logical tiles in input, not pixels.
 func (s ScreenData) GetIndexFromXY(x int, y int) int {
 	return (y * s.ScreenWidth) + x
 }
 
 // GetXYFromIndex gets the X,Y TILE coordinate from a given index.
-// This coordinate is logical tiles, not pixels.
+// Coordinates are logical tiles in output, not pixels.
 func (s ScreenData) GetXYFromIndex(index int) (int, int) {
 	return index % s.ScreenWidth, index / s.ScreenWidth
+}
+
+// DrawScreenBorder draws a border around the game screen.
+func (s ScreenData) DrawScreenBorder(image *ebiten.Image) {
+	// Create a DrawImageOptions
+	opts := &ebiten.DrawImageOptions{}
+
+	// Draw the top
+	for i := 0; i < s.ScreenWidth-1; i++ {
+		x, y := s.GetXYFromIndex(i)
+		opts.GeoM.Reset()
+		opts.GeoM.Translate(float64(x), float64(y)) // Translate pixels
+		image.DrawImage(image, opts)
+	}
+
+	// Draw the left and right columns
+	for i := s.ScreenWidth; i < s.ScreenWidth*s.ScreenHeight-s.ScreenWidth; i += s.ScreenWidth - 1 {
+		x, y := s.GetXYFromIndex(i)
+		opts.GeoM.Reset()
+		opts.GeoM.Translate(float64(x), float64(y)) // Translate pixels
+		image.DrawImage(image, opts)
+	}
+
+	// Draw the bottom
+	for i := s.ScreenWidth*s.ScreenHeight - s.ScreenWidth; i < s.ScreenWidth*s.ScreenHeight-1; i++ {
+		x, y := s.GetXYFromIndex(i)
+		opts.GeoM.Reset()
+		opts.GeoM.Translate(float64(x), float64(y)) // Translate pixels
+		image.DrawImage(image, opts)
+	}
+
 }
 
 // Get the window size.
@@ -74,18 +119,20 @@ var player tiles.Tile = tiles.Tile{
 
 // Draw draws the game screen.
 // It is called every frame (typically 1/60[s] for 60Hz display).
-func (g *Game) Draw(screen *ebiten.Image) {
+func (g *Game) Draw(screenImg *ebiten.Image) {
 
 	println("Draw step: ", g.frameCount)
 
 	// Game rendering.
-	screen.Fill(color.Black) // Clear the screen to avoid artifacts.
+	screenImg.Fill(color.Black) // Clear the screen to avoid artifacts.
 
 	// Draw the player's image at its X and Y coordinates.
 	opts.GeoM.Reset()
 
-	screen.DrawImage(player.SpriteSheetImage, opts)
-	screen.DrawImage(a[0].SpriteSheetImage, opts)
+	screenImg.DrawImage(player.SpriteSheetImage, opts)
+	screenImg.DrawImage(a[0].SpriteSheetImage, opts)
+
+	ScreenData.DrawScreenBorder(player.SpriteByIndex(0))
 
 	// Draw the tiles from the 'a' slice.
 	for i := 0; i < len(a); i++ {
@@ -94,20 +141,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		// Draw the tile's image at its X and Y coordinates.
 		opts.GeoM.Reset()
 		opts.GeoM.Translate(float64(tile.X), float64(tile.Y))
-		screen.DrawImage(tile.SpriteSheetImage, opts)
+		screenImg.DrawImage(tile.SpriteSheetImage, opts)
 	}
 
 	// Print stats on the screen
 	statsText := fmt.Sprintf("Stats:\nX: %d", player.X)
 	// Display FPS and dropped frames on the screen.
 	statsText += fmt.Sprintf("\nFPS: %0.1f\nDropped Frames: %d\nFrame=%d\ncycle=%d", ebiten.CurrentTPS(), g.droppedFrames, g.cycles, g.frameCount)
-	ebitenutil.DebugPrint(screen, statsText)
+	ebitenutil.DebugPrint(screenImg, statsText)
 
 	// Increment the frame count for the next frame.
 	g.frameCount++
-}
-
-// DrawScreenBorder draws a border around the game screen.
-func DrawScreenBorder() {
-
 }
