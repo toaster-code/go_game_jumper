@@ -29,6 +29,8 @@ var screenData ScreenData = NewScreenData()
 
 func main() {
 
+	main2()
+	
 	// declarations
 	var err error
 	var tileSetImage *ebiten.Image
